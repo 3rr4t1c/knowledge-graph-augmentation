@@ -4,8 +4,6 @@ from stub_Lector import StubLector
 from complex import ComplEx
 from dataset import Dataset
 import torch
-from sklearn.preprocessing import MinMaxScaler
-mmscaler = MinMaxScaler()
 
 
 # Ranking must take in account relations with high cardinality.
@@ -15,7 +13,7 @@ def fRank(factsXscores, fact_index, tail_index, decimals=3):
     fact_score = factsXscores[fact_index, tail_index]
     # All the scores for all the possible tails (h, t, ?), rounded to choosen number of decimals
     tail_scores = np.around(factsXscores[fact_index, :], decimals)
-    # All the scores with duplicates removed
+    # Remove all scores duplicates
     tail_scores = np.unique(tail_scores)
     # Sort all the scores from minimum to maximum
     tail_scores.sort()
@@ -51,12 +49,12 @@ def proof_lector(lector_model, lp_model, rank_threshold=0.7, phrase_threshold=0.
             lector_model.phrase2relation.pop(curr_phrase) 
 
     return lector_model # Ready to work in Fact Harvesting Mode
-# Warning: This function is intended both to modify lector_model passed as parameter
+# NOTE: This function is intended both to modify lector_model passed as parameter
 # and return the object himself for general usage. 
 
 
 
-## BEGIN TEST AREA ### 
+## TEST AREA ### 
 # The following code will be executed only if this module is not imported but executed as a script
 if __name__ == "__main__":
     print('Running some test...')
@@ -71,7 +69,7 @@ if __name__ == "__main__":
     lp_model.to('cuda')
     lp_model.load_state_dict(torch.load('stored_models/ComplEx_FB15k-237.pt'))
     lp_model.eval()
-    # Init Lector model
+    # Init Lector (stub) model
     print('Initializing Lector model...')
     lector_model = StubLector(kg)
     lector_model.train_mode('fake corpus text')
