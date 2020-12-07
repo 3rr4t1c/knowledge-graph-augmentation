@@ -2,11 +2,11 @@
 ---
 ##### Final project for thesis @ Roma Tre University
 
-The code is fully integrated with Andrea Rossi ComplEX implementation and **require** that code to work.
-This project aim to improve Lector performance trough Link Prediction in a refinement process.
+The code is fully integrated with Andrea Rossi ComplEx implementation and **require** that code to work.  
+This project aim to improve Lector performance through Link Prediction within a refinement process.
 
-[Link to Lector Project](http://www.dia.uniroma3.it/db/lector/index.html) 
-
+[Link to Lector Project](http://www.dia.uniroma3.it/db/lector/index.html)  
+  
 
 Files content:
 
