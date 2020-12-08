@@ -33,9 +33,9 @@ def proof_lector(lector_model, lp_model, rank_threshold=0.7, phrase_threshold=0.
     # For each phrase evaluate the corresponding facts list with LP
     for curr_phrase, facts_list in phrase2facts.items():
         #print(curr_phrase, lector_model.phrase2relation[curr_phrase]) #debug
-        # Compute scores for each tail of KG # TODO: implement fact inversion to add heads scores in the process
+        # Compute scores for each tail of KG # TODO: implement fact inversion to add heads scores in the process (?)
         samples_matrix = np.array(facts_list)        
-        all_scores_matrix = lp_model.all_scores(samples_matrix).detach().cpu().numpy()
+        all_scores_matrix = lp_model.all_scores(samples_matrix).detach().cpu().numpy() # TODO: pre-evaluate out of loop for better perfomance
         #print(all_scores_matrix) #debug       
         # Evaluate rank for each fact predicted by the current phrase # NOTE: decimals are pre-setted to 1        
         rank_scores = [fRank(all_scores_matrix, i, sample[2], 1) for i, sample in enumerate(facts_list)]
@@ -53,27 +53,59 @@ def proof_lector(lector_model, lp_model, rank_threshold=0.7, phrase_threshold=0.
 # and return the object himself for general usage. 
 
 
+## Evaluate precision and recall
+# precision: remaining good phrases after proof lector run / all phrases after proof lector run 
+# recall: remaining good phrase after proof lector run / all phrases before proof lector
+def evaluate_proof_lector(before_state, after_state):
+    # Relevant retrieved phrases cardinality
+    RR_card = len([v for _, v in after_state.items() if v[0] == 1])
+    # All retrieved phrases cardinality
+    AR_card = len(after_state)
+    # Total relevant phrases cardinality
+    TR_card = len([v for _, v in before_state.items() if v[0] == 1])
+    # Return precision, recall
+    return RR_card/AR_card, RR_card/TR_card 
+
+# TODO: evaluate precsion and recall per relation
 
 ## TEST AREA ### 
 # The following code will be executed only if this module is not imported but executed as a script
 if __name__ == "__main__":
-    print('Running some test...')
+    
+    # Pretty printer for dict
+    import pprint
+    pp = pprint.PrettyPrinter()
+    
+    print('\nRunning some test...')
+    
     # Init dataset
-    print('Loading dataset...', end='', flush=True)
+    print('\nLoading dataset...', end='', flush=True)
     kg = Dataset(name='FB15k-237')
     print('Done.')  
+    
     # Init ComplEx model
     hyperparameters = {'dimension': 1000, 'init_scale': 1e-3}
-    print("Initializing ComplEx model...")
+    print("\nInitializing ComplEx model...", end='', flush=True)
     lp_model = ComplEx(dataset=kg, hyperparameters=hyperparameters, init_random=True)   # type: ComplEx
     lp_model.to('cuda')
     lp_model.load_state_dict(torch.load('stored_models/ComplEx_FB15k-237.pt'))
     lp_model.eval()
+    print('Done.')
+    
     # Init Lector (stub) model
-    print('Initializing Lector model...')
+    print('\nInitializing Lector model...', end='', flush=True)
     lector_model = StubLector(kg)
     lector_model.train_mode('fake corpus text')
+    
     # Test function
-    print('Lector initial state: \n', lector_model.phrase2relation)
+    print('\nLector initial state:')
+    pp.pprint(lector_model.phrase2relation)
+    lector_before_state = lector_model.phrase2relation.copy() # Save a copy for further evaluation
     proof_lector(lector_model, lp_model)
-    print('Lector after state: \n', lector_model.phrase2relation)
+    print('\nLector after state:')
+    pp.pprint(lector_model.phrase2relation)
+
+    # Precision and recall test
+    precision, recall = evaluate_proof_lector(lector_before_state, lector_model.phrase2relation)
+    f_score = 2 * ((precision * recall) / (precision + recall))
+    print(f'\nPrecsion: {precision}, Recall: {recall}, F-Score: {f_score}')
