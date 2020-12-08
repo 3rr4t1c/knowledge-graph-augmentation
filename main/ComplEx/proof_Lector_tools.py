@@ -6,8 +6,15 @@ from bs4 import BeautifulSoup
 import string
 
 # Choosen relations (must match with existing ones)
-EXAMPLE_TARGET_RELATIONS = ['/people/person/spouse_s./people/marriage/spouse',
-                            '/base/locations/continents/countries_within' ]
+EXAMPLE_TARGET_RELATIONS = ['/people/person/nationality',
+                            '/location/location/contains',
+                            '/film/film/language',
+                            '/award/award_category/winners./award/award_honor/ceremony',
+                            '/people/person/spouse_s./people/marriage/type_of_union']
+
+                            # Too low cardinality in test facts files
+                            #'/people/person/spouse_s./people/marriage/spouse',
+                            #'/base/locations/continents/countries_within' ]
 
 # Example map. phrase -> (0 if bad phrase / 1 if good phrase, index of target relation)
 EXAMPLE_PHRASE2RELATIONS = {'married on': (1, 0),
@@ -167,10 +174,10 @@ def facts2samples_encoder(facts, kg):
 if __name__ == '__main__':
     # Pretty printer for dict
     import pprint
-    pp = pprint.PrettyPrinter()
+    pp = pprint.PrettyPrinter(depth=1)
 
     # Show info of highest cardinality relations
-    facts_file_info('data/FB15k-237/test.txt', top=10, target_relations=EXAMPLE_TARGET_RELATIONS)
+    facts_file_info('data/FB15k-237/test.txt', top=20, target_relations=EXAMPLE_TARGET_RELATIONS)
     print()        
 
     # Load test facts for ground truth about some target relations (None=All relations)
