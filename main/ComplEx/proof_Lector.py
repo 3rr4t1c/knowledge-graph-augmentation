@@ -6,43 +6,62 @@ from dataset import Dataset
 import torch
 
 
-# Ranking must take in account relations with high cardinality.
-# Given a tail scores matrix (facts x scores), a fact index and a tail index return the rank
-def fRank(factsXscores, fact_index, tail_index, decimals=3):
-    # The scalar score corresponding to a single fact (h, r, t)
-    fact_score = factsXscores[fact_index, tail_index]
-    # All the scores for all the possible tails (h, t, ?), rounded to choosen number of decimals
-    tail_scores = np.around(factsXscores[fact_index, :], decimals)
-    # Remove all scores duplicates
-    tail_scores = np.unique(tail_scores)
-    # Sort all the scores from minimum to maximum
-    tail_scores.sort()
-    # searchsorted returns the index where fact_score should be inserted to maintain order
-    return np.searchsorted(tail_scores, fact_score) / tail_scores.size # Normalized to [0,1] interval
+# Ranking  must take in account relations with high cardinality.
+# Given a tail scores matrix (facts x scores), the row index as a map and the fact
+# return the fact ranking over all the possible tail scores
+def fRank(factsXscores, row_index, fact, decimals=3):
+    # Read the scores for this fact per each tails and move data on RAM
+    tails_scores = factsXscores[row_index[fact], :].cpu().numpy()
+    # Read the score for current fact and tail
+    fact_score = tails_scores[fact[2]]
+    # Round all the scores to required decimals
+    tails_scores = np.around(tails_scores, decimals)
+    # Filter all unique scores (and sort ascending)
+    tails_scores = np.unique(tails_scores)
+    # Evaluate ranking normalized to [0, 1] interval
+    return np.searchsorted(tails_scores, fact_score) / tails_scores.size
+    # NOTE: searchsorted returns the index where fact_score should be inserted to maintain order
+
+
+# Take a list (with duplicates) and return
+# a dict with each element mapped on an integer
+# corresponding to the row index of the score matrix
+def create_row_index(seq):
+    index = dict()
+    row = 0
+    for x in seq:
+        if x not in index:
+            index[x] = row
+            row += 1
+    
+    return index
 
 
 # Call this function to filter a lector map selecting best phrases with link prediction
-# May I suggest name SELector? (It select best phrases and SE == Second Evaluation)
+# May I suggest name SELector? (It select best phrases and SE == Selection Enhanced)
 # Note: In this way Lector and LP can be first trained in parallel with Python multiprocessing (to deepen in future)
 # Pre: Same dataset (KG) must be used 
-def proof_lector(lector_model, lp_model, rank_threshold=0.7, phrase_threshold=0.7):
+def proof_lector(lector_model, lp_model, rank_threshold=0.8, phrase_threshold=0.7):
 
-    # Run phrase tracking mode onto corpus text
+    # Run phrase tracking mode onto corpus text 
     phrase2facts = lector_model.phrase_tracking_mode('fake text corpus')
+    # NOTE: phrase tracking mode should be executed out of this function and checked if map exist
+
+    # Map: fact as a sample -> row index (for quick row resolution)
+    sample2row = create_row_index(sum(phrase2facts.values(), []))
+    
+    # Build the input matrix for link prediction
+    # NOTE: Dict maintain insertion order: https://mail.python.org/pipermail/python-dev/2017-December/151283.html
+    all_samples_matrix = np.array(list(sample2row.keys()))
+    # Compute scores for each tail of KG # TODO: implement fact inversion to add heads scores in the process (?)
+    all_scores_matrix = lp_model.all_scores(all_samples_matrix).detach()
     
     # For each phrase evaluate the corresponding facts list with LP
     for curr_phrase, facts_list in phrase2facts.items():
-        #print(curr_phrase, lector_model.phrase2relation[curr_phrase]) #debug
-        # Compute scores for each tail of KG # TODO: implement fact inversion to add heads scores in the process (?)
-        samples_matrix = np.array(facts_list)        
-        all_scores_matrix = lp_model.all_scores(samples_matrix).detach().cpu().numpy() # TODO: pre-evaluate out of loop for better perfomance
-        #print(all_scores_matrix) #debug       
         # Evaluate rank for each fact predicted by the current phrase # NOTE: decimals are pre-setted to 1        
-        rank_scores = [fRank(all_scores_matrix, i, sample[2], 1) for i, sample in enumerate(facts_list)]
-        #print(rank_scores) #debug
+        rank_scores = [fRank(all_scores_matrix, sample2row, sample, 1) for sample in facts_list]        
         # Evaluate phrase fitness by some policy (accuracy overall)
-        phrase_fitness = sum([0 if x <= rank_threshold else 1 for x in rank_scores]) / len(rank_scores) 
-        #print(phrase_fitness) #debug 
+        phrase_fitness = sum([0 if x <= rank_threshold else 1 for x in rank_scores]) / len(rank_scores)       
         # Filter Lector map phrase -> relation, using some policy/threshold
         if phrase_fitness < phrase_threshold:
             # Remove phrase changing Lector model state
@@ -66,7 +85,11 @@ def evaluate_proof_lector(before_state, after_state):
     # Return precision, recall
     return RR_card/AR_card, RR_card/TR_card 
 
-# TODO: evaluate precsion and recall per relation
+
+# TODO: evaluate precsion and recall per each relation
+# def ...
+
+
 
 ## TEST AREA ### 
 # The following code will be executed only if this module is not imported but executed as a script
@@ -97,15 +120,19 @@ if __name__ == "__main__":
     lector_model = StubLector(kg)
     lector_model.train_mode('fake corpus text')
     
-    # Test function
+    # Test Proof Lector
     print('\nLector initial state:')
     pp.pprint(lector_model.phrase2relation)
     lector_before_state = lector_model.phrase2relation.copy() # Save a copy for further evaluation
+    print('\nRunning Proof Lector...', end='', flush=True)
     proof_lector(lector_model, lp_model)
+    print('Done.')
     print('\nLector after state:')
     pp.pprint(lector_model.phrase2relation)
 
     # Precision and recall test
     precision, recall = evaluate_proof_lector(lector_before_state, lector_model.phrase2relation)
     f_score = 2 * ((precision * recall) / (precision + recall))
-    print(f'\nPrecsion: {precision}, Recall: {recall}, F-Score: {f_score}')
+    print(f'\nPrecsion: {np.round(precision, 1)},', end='')
+    print(f' Recall: {np.round(recall, 1)},', end='')
+    print(f' F-Score: {np.round(f_score, 1)}')
