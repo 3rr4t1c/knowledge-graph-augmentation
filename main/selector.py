@@ -10,6 +10,7 @@
 
 from os.path import sep
 import random
+import csv
 
 class SELector:
     
@@ -25,10 +26,18 @@ class SELector:
 
     # Gestisce il caricamento da tsv, in una lista
     def load_tsv(self, file_path, dest):
+
         with open(file_path, 'r') as tsv_file:
-            for line in tsv_file:                               
-                field = tuple(field for field in line.strip().split(sep='\t'))
-                dest.append(field)
+            rd = csv.reader(tsv_file, delimiter='\t')
+            for line in rd:                
+                dest.append(tuple(line))
+        
+
+        #OLD CODE problemi con i campi in cui c'è solo lo spazio
+        # with open(file_path, 'r') as tsv_file:
+        #     for line in tsv_file:                               
+        #         field = tuple(field for field in line.strip().split(sep='\t'))
+        #         dest.append(field)
                 
 
     # Effettua il distant supervision
@@ -166,8 +175,8 @@ class SELector:
         return (e1, rel, e2)
 
 
-    # Estrazione fatti, N.B. i fatti nella forma (e1, unknown, e2) non vengono prodotti
-    def harvest(self, input_text_triples):
+    # Estrazione di fatti da text_triples, eval_mode = True genererà fatti con relazione 'unknown'
+    def harvest(self, input_text_triples, eval_mode=False):
         # Controllo stato del modello
         assert self.model_state == 'READY'
         # Se passi un path carica da tsv altrimenti usa il riferimento
@@ -181,7 +190,7 @@ class SELector:
         result = list()
         for triple in text_triples:
             fact = self.predict(triple, mt_map)
-            if fact[1] != 'unknown':
+            if fact[1] != 'unknown' or eval_mode:
                 result.append(fact)
 
         return result
