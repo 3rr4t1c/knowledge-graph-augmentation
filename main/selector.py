@@ -206,14 +206,18 @@ class SELector:
         # Carica da disco se passi un path (text triples)
         if type(input_text_triples) == str:
             text_triples = list()
+            print('Caricamento text triples in corso...', end='', flush=True)
             self.load_tsv(input_text_triples, text_triples)
+            print('Fatto.', flush=True)
         else:
             text_triples = input_text_triples
 
-        # Carica da disco se passi un path (knowledge graph)
+        # Carica da disco se passi un path (ground truth)
         if type(input_ground_truth) == str:
             ground_truth = list()
+            print('Caricamento ground truth in corso...', end='', flush=True)
             self.load_tsv(input_ground_truth, ground_truth)
+            print('Fatto.', flush=True)
         else:
             ground_truth = input_ground_truth
 
@@ -225,11 +229,11 @@ class SELector:
             gt_relation = ground_truth[i][0]
             # Se il fatto predetto non è unknown
             if relation != 'unknown':
-                # Incrementa il numero di predizioni totali
+                # Incrementa il conteggio delle relazioni estratte
                 pred_card += 1
-                # Se inoltre la predizione è corretta
+                # Se la relazione estratta è anche corretta
                 if relation == gt_relation:
-                    # Incrementa il numero di predizioni corrette
+                    # Incrementa il conteggio delle estrazioni corrette
                     true_card += 1
             # Conta le relazioni rilevanti nella ground truth
             if gt_relation != 'unknown':
