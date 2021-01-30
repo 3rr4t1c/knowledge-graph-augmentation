@@ -14,13 +14,16 @@ import csv
 
 class SELector:
     
-    def __init__(self, notypes=False):
+    def __init__(self, rseed=None, unlabeled_sub=0, no_types=False):
+
         # Stato modello
         self.model_state = 'NOT READY'
-        # Iperparametri
-        self.notypes = notypes 
-        # random seed
-        # unlabeled subsampling
+
+        # Iperparametri        
+        self.rseed = rseed  # random seed controlla la riproducibilità dei risultati      
+        self.unlabeled_sub = unlabeled_sub  # unlabeled subsampling rateo [0, 1]
+        self.no_types = no_types  # usa anche i tipi delle entità per addestrare il modello      
+        
         # Strutture dati 
         self.text_triples = []
         self.knowledge_graph = []
@@ -52,12 +55,12 @@ class SELector:
             try:
                 for rel in kg_dict[(e1,e2)]:
                     triple = (phr, e1, t1, e2, t2, rel)
-                    if self.notypes:
+                    if self.no_types:
                         triple = (phr, e1, '', e2, '', rel)
                     self.labeled_triples.append(triple)
             except:
                 triple = (phr, e1, t1, e2, t2, 'unknown')
-                if self.notypes:
+                if self.no_types:
                     triple = (phr, e1, '', e2, '', 'unknown')
                 self.unlabeled_triples.append(triple)
         # In effetti mantenere gli id delle entità non servirebbe per la fase successiva ma...
@@ -66,6 +69,7 @@ class SELector:
 
     # Costruisce la tabella necessaria per estrarre fatti
     def build_model_triples(self):
+
         # Dizionario da labeled e unlabeled {(phr, t1, t2) -> {rel1: count, rel1: count}}
         all_triples = self.labeled_triples + self.unlabeled_triples
         pattern2relc = dict()
@@ -78,23 +82,25 @@ class SELector:
                     counts[rel] = 1
             except:
                 pattern2relc[(phr, t1, t2)] = {rel: 1}
+
         # Max val key su ciascuna chiave per assegnare relazione
         for pattern, counts in pattern2relc.items():
             phr, t1, t2 = pattern
             rel = max(counts, key=counts.get) # Qui viene scelta la relazione con "max count" da associare al pattern
             if rel != 'unknown':
                 triple = (phr, t1, t2, rel, counts[rel])
-                self.model_triples.append(triple)        
+                self.model_triples.append(triple)
+
         # Ordina pattern per occorrenza decrescente
         self.model_triples.sort(key=lambda t: t[4], reverse=True)
 
     
     # Addestramento modello
-    def train(self, input_text_triples, input_knowledge_graph, subsamp=1, rseed=42):
+    def train(self, input_text_triples, input_knowledge_graph):
 
         # Se viene passato un path carica da file altrimenti assegna
         if type(input_text_triples) is str:
-            print('Caricamento tabella text triples in corso...', end='', flush=True)
+            print('Caricamento text triples in corso...', end='', flush=True)
             self.load_tsv(input_text_triples, self.text_triples,)
             print('Fatto.', flush=True)
         else:
@@ -115,13 +121,13 @@ class SELector:
 
         # Sottocampionamento unlabeled triples (...INSERIRE LINK PREDICTION QUI)
         print('Sottocampionamento casuale delle triple non etichettate...', end='', flush=True)
-        num_sample = int(len(self.unlabeled_triples) * subsamp)
-        random.seed(rseed) # Deterministico, usa rseed=None per seed casuali
+        num_sample = int(len(self.unlabeled_triples) * self.unlabeled_sub)
+        random.seed(self.rseed) # Deterministico, usa rseed=None per seed casuali
         self.unlabeled_triples = random.sample(self.unlabeled_triples, k=num_sample)
         print('Fatto.', flush=True)
 
         # Costruisce la tabella che serve per le predizioni
-        print('Generando le triple del modello per le estrazioni...', end='', flush=True)
+        print('Generazione delle triple del modello...', end='', flush=True)
         self.build_model_triples()
         print('Fatto.', flush=True)
         
@@ -134,8 +140,11 @@ class SELector:
         self.model_state = 'READY'
 
 
-    # Costruisce un dizionario pattern -> relazione per match rapidi
+    # Costruisce un indice hash su model triples
     def build_mt_map(self):
+
+        assert self.model_state == 'READY'
+        
         mt_map = dict()
         for phr, t1, t2, r, c in self.model_triples:
             mt_map[(phr, t1, t2)] = (r, c)
@@ -145,18 +154,23 @@ class SELector:
 
     # Singola predizione di un fatto a partire da una tripla estratta dal testo
     def predict(self, text_triple, use_map=None):
+
         # Controllo stato del modello
         assert self.model_state == 'READY'
+
         # Spacchetta tripla
         phr, e1, t1, e2, t2 = text_triple
+
         # Controllo se modalità senza tipi è attiva
-        if self.notypes:
+        if self.no_types:
             t1, t2 = '', ''
+
         # Controllo se struttura dati per match passata
         if use_map:
             model_triples_map = use_map
         else:
             model_triples_map = self.build_mt_map()
+
         # Match ad accesso diretto (corrispondenza esatta del pattern)
         try:            
             rel, _ = model_triples_map[(phr, t1, t2)]
@@ -181,7 +195,7 @@ class SELector:
             text_triples = input_text_triples
 
         # Iterazione su ogni tripla estratta dal testo
-        mt_map = self.build_mt_map()
+        mt_map = self.build_mt_map() # model triples map (indice hash su pattern)
         result = list()
         for triple in text_triples:
             fact = self.predict(triple, mt_map)
@@ -261,7 +275,7 @@ class SELector:
             struct = outer                        
         else:
             struct = getattr(self, struct_name)
-                        
+
         # Stampa struttura in modo ordinato  
         for line in struct[:limit]:
             print(line)
@@ -279,8 +293,8 @@ if __name__ == '__main__':
     mini_lector_kg = 'input_data/lector_example/knowledge_graph.tsv'
     mini_lector_tt = 'input_data/lector_example/text_triples.tsv'
 
-    sel = SELector(notypes=True) # Modello inizializzato in modalità senza controllo dei tipi
-    sel.train(toy_tt, toy_kg, subsamp=0.8) # Sottocampionamento delle unlabeled a 0.8
+    sel = SELector(rseed=42, unlabeled_sub=0.8)
+    sel.train(toy_tt, toy_kg) # Sottocampionamento delle unlabeled a 0.8
 
     # Mostra strutture dati dopo l'addestramento
     sel.show_list('text_triples')
