@@ -108,17 +108,21 @@ class SELector:
     def train(self, input_text_triples, input_knowledge_graph, subsamp=1, rseed=42):        
         # Se viene passato un path carica da file altrimenti assegna
         if type(input_text_triples) is str:
+            print('Caricamento tabella text triples in corso...', end='', flush=True)
             self.load_tsv(input_text_triples, self.text_triples,)
+            print('Fatto.', flush=True)
         else:
             self.text_triples = input_text_triples
         # Se viene passato un path carica da file altrimenti assegna
         if type(input_knowledge_graph) is str:
+            print('Caricamento knowledge graph in corso...', end='', flush=True)
             self.load_tsv(input_knowledge_graph, self.knowledge_graph)
+            print('Fatto.', flush=True)
         else:
             self.knowledge_graph = input_knowledge_graph
         
         # Distant Supervision
-        print('Generando training set con distant supervision...', end='', flush=True)
+        print('Generazione training set con distant supervision...', end='', flush=True)
         self.distant_supervision()
         print('Fatto.', flush=True)        
         
