@@ -282,15 +282,13 @@ class SELector:
 if __name__ == '__main__':
 
     # File esempio giocattolo
-    toy_tt = f'input_data/toy_example/text_triples.tsv'
-    toy_kg = f'input_data/toy_example/knowledge_graph.tsv'
+    toy_tt_path = 'input_data/toy_example/text_triples.tsv'
+    toy_kg_path = 'input_data/toy_example/knowledge_graph.tsv'
+    toy_gt_path = 'input_data/toy_example/text_triples_gt.tsv'  
 
-    # Files esempio con dati reali estratti da Lector
-    mini_lector_kg = 'input_data/lector_example/knowledge_graph.tsv'
-    mini_lector_tt = 'input_data/lector_example/text_triples.tsv'
-
+    # Inizializza e addestra modello
     sel = SELector(rseed=42, unlabeled_sub=0.8)
-    sel.train(toy_tt, toy_kg) # Sottocampionamento delle unlabeled a 0.8
+    sel.train(toy_tt_path, toy_kg_path)
 
     # Mostra strutture dati dopo l'addestramento
     sel.show_list('text_triples')
@@ -304,12 +302,12 @@ if __name__ == '__main__':
     sel.show_list('model_triples')
 
     # Test estrazione fatti
-    harvested = sel.harvest('input_data/toy_example/text_triples.tsv')
+    harvested = sel.harvest(toy_tt_path)
     sel.show_list('harvested_triples', harvested)
 
     # Valutazione modello con ground truth
-    precision, recall, fscore = sel.evaluate('input_data/toy_example/text_triples.tsv', 
-                                             'input_data/toy_example/text_triples_gt.tsv')
+    precision, recall, fscore = sel.evaluate(toy_tt_path, toy_gt_path)
+
     print('\nValutazione sulle text triples usate per il training:')
     print(f'Precision: {precision}')
     print(f'Recall: {recall}')
