@@ -142,8 +142,6 @@ class SELector:
 
     # Costruisce un indice hash su model triples
     def build_mt_map(self):
-
-        assert self.model_state == 'READY'
         
         mt_map = dict()
         for phr, t1, t2, r, c in self.model_triples:
@@ -156,7 +154,7 @@ class SELector:
     def predict(self, text_triple, use_map=None):
 
         # Controllo stato del modello
-        assert self.model_state == 'READY'
+        assert self.model_state == 'READY', 'Model not ready, please train the model.'
 
         # Spacchetta tripla
         phr, e1, t1, e2, t2 = text_triple
@@ -184,9 +182,6 @@ class SELector:
     # genererà anche fatti con relazione 'unknown'
     def harvest(self, input_text_triples, keep_unknown=False):
 
-        # Controllo stato del modello
-        assert self.model_state == 'READY'
-
         # Se passi un path carica da tsv altrimenti usa il riferimento
         if type(input_text_triples) is str:
             text_triples = list()
@@ -207,9 +202,6 @@ class SELector:
 
     # Valuta le prestazioni del modello, necessita di una ground truth
     def evaluate(self, input_text_triples, input_ground_truth):
-
-        # Controllo stato del modello
-        assert self.model_state == 'READY'
 
         # Carica da disco se passi un path (text triples)
         if type(input_text_triples) == str:
