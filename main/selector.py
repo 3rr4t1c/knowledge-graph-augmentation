@@ -179,8 +179,9 @@ class SELector:
         return (e1, rel, e2)
 
 
-    # Estrazione di fatti da text_triples, eval_mode = True genererà fatti con relazione 'unknown'
-    def harvest(self, input_text_triples, eval_mode=False):
+    # Estrazione di fatti da text_triples, keep_unknown = True 
+    # genererà anche fatti con relazione 'unknown'
+    def harvest(self, input_text_triples, keep_unknown=False):
         # Controllo stato del modello
         assert self.model_state == 'READY'
         # Se passi un path carica da tsv altrimenti usa il riferimento
@@ -194,7 +195,7 @@ class SELector:
         result = list()
         for triple in text_triples:
             fact = self.predict(triple, mt_map)
-            if fact[1] != 'unknown' or eval_mode:
+            if fact[1] != 'unknown' or keep_unknown:
                 result.append(fact)
 
         return result
