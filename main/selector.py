@@ -282,9 +282,9 @@ class SELector:
 if __name__ == '__main__':
 
     # File esempio giocattolo
-    toy_tt_path = 'input_data/toy_example/text_triples.tsv'
-    toy_kg_path = 'input_data/toy_example/knowledge_graph.tsv'
-    toy_gt_path = 'input_data/toy_example/text_triples_gt.tsv'  
+    toy_tt_path = 'data/toy_example/train/text_triples.tsv'
+    toy_kg_path = 'data/toy_example/train/knowledge_graph.tsv'
+    toy_gt_path = 'data/toy_example/test/text_triples_gt.tsv'  
 
     # Inizializza e addestra modello
     sel = SELector(rseed=42, unlabeled_sub=0.8)
