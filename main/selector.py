@@ -9,12 +9,13 @@
 # show_list(...) mostra il contenuto di una struttura dati interna o di una lista 
 
 from os.path import sep
+from text_normalization import parallel_phrases_normalizer, nltk_phrase_normalizer
 import random
 import csv
 
 class SELector:
     
-    def __init__(self, rseed=None, unlabeled_sub=0, no_types=False):
+    def __init__(self, rseed=None, unlabeled_sub=0, no_types=False, text_norm=False):
 
         # Stato modello
         self.model_state = 'NOT READY'
@@ -22,7 +23,8 @@ class SELector:
         # Iperparametri        
         self.rseed = rseed  # random seed controlla la riproducibilità dei risultati      
         self.unlabeled_sub = unlabeled_sub  # unlabeled subsampling rateo [0, 1]
-        self.no_types = no_types  # usa anche i tipi delle entità per addestrare il modello      
+        self.no_types = no_types  # usa anche i tipi delle entità per addestrare il modello  
+        self.text_norm = text_norm  # normalizza le frasi prima di addestrare il modello ed estrarre    
         
         # Strutture dati 
         self.text_triples = []
@@ -51,7 +53,7 @@ class SELector:
             except:
                 kg_dict[(h,t)] = [r]
         # Iterazione a singolo ciclo for e accesso diretto
-        for phr, e1, t1, e2, t2 in self.text_triples:
+        for phr, e1, t1, e2, t2 in self.text_triples:            
             try:
                 for rel in kg_dict[(e1,e2)]:
                     triple = (phr, e1, t1, e2, t2, rel)
@@ -114,6 +116,12 @@ class SELector:
         else:
             self.knowledge_graph = input_knowledge_graph
 
+        # Normalizzazione phrases
+        if self.text_norm:
+            print('Normalizzazione phrases...', end='', flush=True)
+            self.text_triples = parallel_phrases_normalizer(self.text_triples, nltk_phrase_normalizer)
+            print('Fatto.', flush=True)
+
         # Distant Supervision (INSERIRE LINK PREDICTION QUI oppure...)
         print('Generazione training set con distant supervision...', end='', flush=True)
         self.distant_supervision()
@@ -150,28 +158,22 @@ class SELector:
         return mt_map
   
 
-    # Singola predizione di un fatto a partire da una tripla estratta dal testo
-    def predict(self, text_triple, use_map=None):
+    # Metodo interno per l'estrazione di una relazione da testo
+    def _predict(self, text_triple, mt_map):
 
         # Controllo stato del modello
         assert self.model_state == 'READY', 'Model not ready, please train the model.'
 
         # Spacchetta tripla
         phr, e1, t1, e2, t2 = text_triple
-
+        
         # Controllo se modalità senza tipi è attiva
         if self.no_types:
-            t1, t2 = '', ''
-
-        # Controllo se struttura dati per match passata
-        if use_map:
-            model_triples_map = use_map
-        else:
-            model_triples_map = self.build_mt_map()
+            t1, t2 = '', ''            
 
         # Match ad accesso diretto (corrispondenza esatta del pattern)
         try:            
-            rel, _ = model_triples_map[(phr, t1, t2)]
+            rel, _ = mt_map[(phr, t1, t2)]
         except:
             rel = 'unknown'
 
@@ -189,20 +191,30 @@ class SELector:
         else:
             text_triples = input_text_triples
 
+        # Controllo se modalità normalizzazione testo è attiva
+        if self.text_norm:
+            text_triples = parallel_phrases_normalizer(text_triples, nltk_phrase_normalizer)
+
         # Iterazione su ogni tripla estratta dal testo
         mt_map = self.build_mt_map() # model triples map (indice hash su pattern)
         result = list()
         for triple in text_triples:
-            fact = self.predict(triple, mt_map)
+            fact = self._predict(triple, mt_map)
             if fact[1] != 'unknown' or keep_unknown:
                 result.append(fact)
 
         return result
 
 
+    # Metodo esposto per l'estrazione di singole relazioni
+    def predict(self, text_triple):
+        output = self.harvest([text_triple], keep_unknown=True)
+        return output[0]
+
+
     # Valuta le prestazioni del modello, necessita di una ground truth
     def evaluate(self, input_text_triples, input_ground_truth):
-
+        print('*** Valutazione modello ***', flush=True)
         # Carica da disco se passi un path (text triples)
         if type(input_text_triples) == str:
             text_triples = list()
@@ -221,22 +233,22 @@ class SELector:
         else:
             ground_truth = input_ground_truth
 
-        # Effettua le predizioni con il modello e valuta prestazioni
-        mt_map = self.build_mt_map()
-        pred_card, true_card, relevant_card = 0, 0, 0        
-        for i, txt_triple in enumerate(text_triples):
-            _, relation, _ = self.predict(txt_triple, mt_map)
-            gt_relation = ground_truth[i][0]
+        # Effettua le predizioni con il modello e valuta le prestazioni
+        harvested = self.harvest(text_triples, keep_unknown=True)       
+        pred_card, true_card, relevant_card = 0, 0, 0
+        for i, gt in enumerate(ground_truth):
+            true_relation = gt[0] 
+            _, relation, _ = harvested[i]            
             # Se il fatto predetto non è unknown
             if relation != 'unknown':
                 # Incrementa il conteggio delle relazioni estratte
                 pred_card += 1
                 # Se la relazione estratta è anche corretta
-                if relation == gt_relation:
+                if relation == true_relation:
                     # Incrementa il conteggio delle estrazioni corrette
                     true_card += 1
             # Conta le relazioni rilevanti nella ground truth
-            if gt_relation != 'unknown':
+            if true_relation != 'unknown':
                 relevant_card += 1
 
         # Calcolo precision, recall ed fScore

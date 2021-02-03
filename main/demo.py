@@ -20,14 +20,16 @@ pid2name_file = 'data/wikidata_stuff/pid2name.json'
 # Parametri addestramento
 no_types = False
 unlabeled_sub = 0.6
+text_norm = False
 
 # Mostra informazioni
 print('Avvio demo con parametri:')
 print(f'Percentuale sottocampionamento unlabeled: {unlabeled_sub*100}%')
 print(f'Utilizzo tipi come parte del pattern: {"Disabilitato" if no_types else "Abilitato"}')
+print(f'Normalizzazione automatica delle phrases: {"Abilitata" if text_norm else "Disabilitata"}')
 
 # Creazione modello 
-slc = SELector(unlabeled_sub=unlabeled_sub)
+slc = SELector(unlabeled_sub=unlabeled_sub, no_types=no_types, text_norm=text_norm)
 
 # Addestramento
 slc.train(lector_TT, lector_KG)
