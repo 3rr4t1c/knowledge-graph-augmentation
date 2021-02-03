@@ -2,6 +2,7 @@
 # Training set di dati reali (KG con 120.000 fatti e TT con 1.200.000 testi + entità e tipi)
 # Test set ricavato da FewRel (40.177 frasi estratte dal testo con entità e tipi)
 
+from type_regularization import types_remap
 from selector import SELector
 import pandas as pd
 import json
@@ -18,18 +19,20 @@ fewrel_GT = 'data/lector_example/test/fewrel_translated_gt.tsv'
 pid2name_file = 'data/wikidata_stuff/pid2name.json'
 
 # Parametri addestramento
-no_types = False
 unlabeled_sub = 0.6
+no_types = False
 text_norm = False
+type_remapping = types_remap('data/dbpedia_stuff/types_hierarchy_fixed.tsv', -1, ['[Person]'])
 
 # Mostra informazioni
 print('Avvio demo con parametri:')
 print(f'Percentuale sottocampionamento unlabeled: {unlabeled_sub*100}%')
 print(f'Utilizzo tipi come parte del pattern: {"Disabilitato" if no_types else "Abilitato"}')
 print(f'Normalizzazione automatica delle phrases: {"Abilitata" if text_norm else "Disabilitata"}')
+print(f'Riassegnazione tipi a grana grossa: {"Abilitata" if type_remapping else "Disabilitata"}')
 
 # Creazione modello 
-slc = SELector(unlabeled_sub=unlabeled_sub, no_types=no_types, text_norm=text_norm)
+slc = SELector(unlabeled_sub=unlabeled_sub, no_types=no_types, text_norm=text_norm, type_remapping=type_remapping)
 
 # Addestramento
 slc.train(lector_TT, lector_KG)
@@ -80,6 +83,3 @@ if answ.lower() == 'y' or answ.lower() == 'yes':
     except:
         print('Immissione invalida, termino la demo.')
         pass
-
-    
-    

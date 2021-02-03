@@ -15,7 +15,7 @@ import csv
 
 class SELector:
     
-    def __init__(self, rseed=None, unlabeled_sub=0, no_types=False, text_norm=False):
+    def __init__(self, rseed=None, unlabeled_sub=0, no_types=False, text_norm=False, type_remapping=None):
 
         # Stato modello
         self.model_state = 'NOT READY'
@@ -24,7 +24,10 @@ class SELector:
         self.rseed = rseed  # random seed controlla la riproducibilità dei risultati      
         self.unlabeled_sub = unlabeled_sub  # unlabeled subsampling rateo [0, 1]
         self.no_types = no_types  # usa anche i tipi delle entità per addestrare il modello  
-        self.text_norm = text_norm  # normalizza le frasi prima di addestrare il modello ed estrarre    
+        self.text_norm = text_norm  # normalizza le frasi prima di addestrare il modello ed estrarre
+        if type_remapping:
+            self.no_types = False  # Specificare un riassegnamento forza l'utilizzo dei tipi
+        self.type_remapping = type_remapping  # Riassegna i tipi in base ad un mapping (generalizza tipi)    
         
         # Strutture dati 
         self.text_triples = []
@@ -53,7 +56,15 @@ class SELector:
             except:
                 kg_dict[(h,t)] = [r]
         # Iterazione a singolo ciclo for e accesso diretto
-        for phr, e1, t1, e2, t2 in self.text_triples:            
+        for phr, e1, t1, e2, t2 in self.text_triples:
+            # Riassegnazione tipi
+            if self.type_remapping:
+                try:
+                    t1 = self.type_remapping[t1]
+                    t2 = self.type_remapping[t2]
+                except:
+                    pass
+            # Smistamento in labeled o unlabeled            
             try:
                 for rel in kg_dict[(e1,e2)]:
                     triple = (phr, e1, t1, e2, t2, rel)
@@ -169,7 +180,15 @@ class SELector:
         
         # Controllo se modalità senza tipi è attiva
         if self.no_types:
-            t1, t2 = '', ''            
+            t1, t2 = '', ''
+
+        # Riassegnazione tipi
+        if self.type_remapping:
+            try:
+                t1 = self.type_remapping[t1]
+                t2 = self.type_remapping[t2]
+            except:
+                pass            
 
         # Match ad accesso diretto (corrispondenza esatta del pattern)
         try:            
