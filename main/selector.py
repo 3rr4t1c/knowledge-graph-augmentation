@@ -232,7 +232,7 @@ class SELector:
 
 
     # Valuta le prestazioni del modello, necessita di una ground truth
-    def evaluate(self, input_text_triples, input_ground_truth):
+    def evaluate(self, input_text_triples, input_ground_truth, gt_map=None):
         print('*** Valutazione modello ***', flush=True)
         # Carica da disco se passi un path (text triples)
         if type(input_text_triples) == str:
@@ -256,18 +256,26 @@ class SELector:
         harvested = self.harvest(text_triples, keep_unknown=True)       
         pred_card, true_card, relevant_card = 0, 0, 0
         for i, gt in enumerate(ground_truth):
-            true_relation = gt[0] 
+            # Valutazione con remapping di relazioni o senza
+            if gt_map:
+                try:
+                    true_relations = gt_map[gt[0]]
+                except:
+                    true_relations = ['unknown']
+            else:
+                true_relations = [gt[0]]
+            # Relazione estratta dal modello
             _, relation, _ = harvested[i]            
             # Se il fatto predetto non è unknown
             if relation != 'unknown':
                 # Incrementa il conteggio delle relazioni estratte
                 pred_card += 1
                 # Se la relazione estratta è anche corretta
-                if relation == true_relation:
+                if relation in true_relations:
                     # Incrementa il conteggio delle estrazioni corrette
                     true_card += 1
             # Conta le relazioni rilevanti nella ground truth
-            if true_relation != 'unknown':
+            if true_relations != ['unknown']:
                 relevant_card += 1
 
         # Calcolo precision, recall ed fScore
