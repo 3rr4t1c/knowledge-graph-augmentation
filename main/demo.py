@@ -19,13 +19,13 @@ fewrel_GT = 'data/lector_example/test/fewrel_translated_gt.tsv'
 pid2name_file = 'data/wikidata_stuff/pid2name.json'
 
 # Parametri addestramento
-unlabeled_sub = 0.6
+unlabeled_sub = 0.4
 no_types = False
 text_norm = False
-type_remapping = types_remap('data/dbpedia_stuff/types_hierarchy_fixed.tsv', -1, ['[Person]'])
+type_remapping = None #types_remap('data/dbpedia_stuff/types_hierarchy_fixed.tsv', -1, ['[Person]'])
 
 # Mostra informazioni
-print('Avvio demo con parametri:')
+print('* Avvio demo con parametri:')
 print(f'Percentuale sottocampionamento unlabeled: {unlabeled_sub*100}%')
 print(f'Utilizzo tipi come parte del pattern: {"Disabilitato" if no_types else "Abilitato"}')
 print(f'Normalizzazione automatica delle phrases: {"Abilitata" if text_norm else "Disabilitata"}')
@@ -35,14 +35,16 @@ print(f'Riassegnazione tipi a grana grossa: {"Abilitata" if type_remapping else 
 slc = SELector(unlabeled_sub=unlabeled_sub, no_types=no_types, text_norm=text_norm, type_remapping=type_remapping)
 
 # Addestramento
+print('\n* Avvio addestramento modello:')
 slc.train(lector_TT, lector_KG)
 
 # Informazioni stato del modello
-print('- Model triples:', len(slc.model_triples))
 print('- Labeled triples:', len(slc.labeled_triples))
 print('- Unlabeled triples:', len(slc.unlabeled_triples))
+print('- Model triples:', len(slc.model_triples))
 
 # Estrazione relazioni dal dataset di test
+print('\n* Estrazione fatti dal dataset FewRel:')
 harvested = slc.harvest(fewrel_TT, keep_unknown=True)
 
 # Costruzione dataframe per visualizzazione
@@ -58,28 +60,47 @@ ground_truth['name'] = ground_truth['PID'].apply(lambda x: pid2name[x][0])
 ground_truth['desc'] = ground_truth['PID'].apply(lambda x: pid2name[x][1])
 
 # Aggiunta delle descrizioni ai fatti estratti per ispezione manuale
-harv_df['Separator'] = '--->'
+harv_df['DIV'] = '-->'
 harv_df['True Property'] = ground_truth['name']
 #harv_df['Description'] = ground_truth['desc']
 harv_df['PID'] = ground_truth['PID']
 
 # Mostra statistiche
-print('\nRelazioni totali nel test set:', harv_df.shape[0])
-print('Relazioni NON estratte dal modello:', harv_df[harv_df['Relation'] == 'unknown'].shape[0])
-print('Relazioni estratte dal modello:', harv_df[harv_df['Relation'] != 'unknown'].shape[0])
+print('\n* Statistiche sui fatti estratti')
+print('- Relazioni totali nel test set:', harv_df.shape[0])
+print('- Relazioni NON estratte dal modello:', harv_df[harv_df['Relation'] == 'unknown'].shape[0])
+print('- Relazioni estratte dal modello:', harv_df[harv_df['Relation'] != 'unknown'].shape[0])
 
 # Mostra dataset delle relazioni estratte per ispezione manuale
 pd.set_option('display.max_rows', None)    
 #pd.set_option('display.max_columns', 6)
 #pd.set_option('display.width', 10)
 harv_df_no_unknown = harv_df[harv_df['Relation'] != 'unknown']
-answ = input(f'Vuoi mostrare le relazioni estratte? ({harv_df_no_unknown.shape[0]} righe) y/n > ')
+answ = input(f'\n* Vuoi mostrare le relazioni estratte? ({harv_df_no_unknown.shape[0]} righe) y/n > ')
 if answ.lower() == 'y' or answ.lower() == 'yes':
     answ = input('Quante righe vuoi mostrare? > ')
     try:
         answ = int(answ)
-        print(harv_df_no_unknown.sample(answ))
-        print('Fine demo.')
+        print(harv_df_no_unknown.sample(answ))        
     except:
-        print('Immissione invalida, termino la demo.')
+        print('Immissione non valida.')
         pass
+
+# Distribuzione estrazioni
+#pd.set_option('display.max_rows', None)
+dis_df = harv_df[['Relation', 'True Property']].copy()
+dis_df['id'] = dis_df.index
+dis_df = dis_df.groupby(['Relation', 'True Property'])['id'].count().reset_index(name="count")
+answ = input(f'\n* Vuoi mostrare tutte le associazioni aggregate per conteggio? ({dis_df.shape[0]} righe) y/n > ')
+if answ.lower() == 'y' or answ.lower() == 'yes':
+    print(dis_df.sort_values(by=['count'], ascending=False))
+
+# Valutazione
+from mappings import property2relations
+print('\n* Valutazione modello:')
+p, r, f = slc.evaluate(fewrel_TT, fewrel_GT, property2relations)
+print(f'- Precision: {p}')
+print(f'- Recall: {r}')
+print(f'- F1-Score: {f}')
+
+print('\n* Fine demo.')

@@ -238,7 +238,7 @@ class SELector:
 
     # Valuta le prestazioni del modello, necessita di una ground truth
     def evaluate(self, input_text_triples, input_ground_truth, gt_map=None):
-        print('*** Valutazione modello ***', flush=True)
+        
         # Carica da disco se passi un path (text triples)
         if type(input_text_triples) == str:
             text_triples = list()
