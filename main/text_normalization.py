@@ -51,7 +51,7 @@ def parallel_phrases_normalizer(tb, phrase_normalizer):
     with Pool() as pool:
         phrases = pool.map(phrase_normalizer, phrases)
 
-    tb_norm = [(phr, tb[i][1], tb[i][2], tb[i][3], tb[i][4]) for i, phr in enumerate(phrases)]        
+    tb_norm = [(phr, *tb[i][1:]) for i, phr in enumerate(phrases)]        
 
     return tb_norm
 

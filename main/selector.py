@@ -127,12 +127,6 @@ class SELector:
         else:
             self.knowledge_graph = input_knowledge_graph
 
-        # Normalizzazione phrases
-        if self.text_norm:
-            print('Normalizzazione phrases...', end='', flush=True)
-            self.text_triples = parallel_phrases_normalizer(self.text_triples, nltk_phrase_normalizer)
-            print('Fatto.', flush=True)
-
         # Distant Supervision (INSERIRE LINK PREDICTION QUI oppure...)
         print('Generazione training set con distant supervision...', end='', flush=True)
         self.distant_supervision()
@@ -144,6 +138,13 @@ class SELector:
         random.seed(self.rseed) # Deterministico, usa rseed=None per seed casuali
         self.unlabeled_triples = random.sample(self.unlabeled_triples, k=num_sample)
         print('Fatto.', flush=True)
+
+        # Normalizzazione phrases
+        if self.text_norm:
+            print('Normalizzazione phrases (multiprocessing)...', end='', flush=True)
+            self.labeled_triples = parallel_phrases_normalizer(self.labeled_triples, nltk_phrase_normalizer)
+            self.unlabeled_triples = parallel_phrases_normalizer(self.unlabeled_triples, nltk_phrase_normalizer)
+            print('Fatto.', flush=True)
 
         # Costruisce la tabella che serve per le predizioni
         print('Generazione delle triple del modello...', end='', flush=True)
@@ -206,13 +207,17 @@ class SELector:
         # Se passi un path carica da tsv altrimenti usa il riferimento
         if type(input_text_triples) is str:
             text_triples = list()
+            print('Caricamento text triples...', end='', flush=True)
             self.load_tsv(input_text_triples, text_triples)
+            print('Fatto.', flush=True)
         else:
             text_triples = input_text_triples
 
         # Controllo se modalità normalizzazione testo è attiva
         if self.text_norm:
+            print('Normalizzazione phrases (multiprocessing)...', end='', flush=True)
             text_triples = parallel_phrases_normalizer(text_triples, nltk_phrase_normalizer)
+            print('Fatto.', flush=True)
 
         # Iterazione su ogni tripla estratta dal testo
         mt_map = self.build_mt_map() # model triples map (indice hash su pattern)
