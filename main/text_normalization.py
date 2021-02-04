@@ -2,6 +2,8 @@ from multiprocessing import Pool
 import pandas as pd
 import spacy
 import nltk
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
 
 nlp = spacy.load('en_core_web_sm')
 
@@ -50,8 +52,8 @@ def parallel_phrases_normalizer(tb, phrase_normalizer):
 
     with Pool() as pool:
         phrases = pool.map(phrase_normalizer, phrases)
-
-    tb_norm = [(phr, *tb[i][1:]) for i, phr in enumerate(phrases)]        
+    
+    tb_norm = [(phr, *tb[i][1:]) for i, phr in enumerate(phrases)]
 
     return tb_norm
 
@@ -67,7 +69,10 @@ if __name__ == '__main__':
 
     # Seleziona alcuni record e converte la struttura dati
     print('Scelta casuale di qualche record...', end='', flush=True)
-    tlist = list(df.sample(100).to_records(index=False))
+    tlist = list()
+    for record in df.sample(100).to_records(index=False): # lista di numpy.record!
+        tlist.append(tuple(record))
+
     print('Fatto.', flush=True)
 
     # Mostra alcuni record prima
