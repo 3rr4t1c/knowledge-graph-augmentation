@@ -1,13 +1,13 @@
-birthPlace
-unknown
-spouse
-educatedAt
-birthPlace
-educatedAt
-birthPlace
-spouse
-birthPlace
-unknown
-birthPlace
-unknown
-unknown
+was born in	E6	person	E10	place	birthPlace
+met	E1	person	E3	person	unknown
+married to	E1	person	E3	person	spouse
+attended	E1	person	E2	institute	educatedAt
+born in	E9	person	E4	place	birthPlace
+graduated at	E9	person	E2	institute	educatedAt
+born in	E6	person	E10	place	birthPlace
+married to	E6	person	E8	person	spouse
+born in	E1	person	E4	place	birthPlace
+met	E6	person	E9	person	unknown
+was born in	E5	person	E7	place	birthPlace
+met	E1	person	E6	person	unknown
+met	E8	person	E3	person	unknown

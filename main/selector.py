@@ -8,8 +8,8 @@
 # save_to_tsv(...) salva lo stato del modello in un tsv (non ancora implementato) 
 # show_list(...) mostra il contenuto di una struttura dati interna o di una lista 
 
+from text_preprocessing import text_triples_norm
 from os.path import sep
-from text_normalization import parallel_phrases_normalizer, nltk_phrase_normalizer
 import random
 import csv
 
@@ -40,7 +40,7 @@ class SELector:
     # Gestisce il caricamento da tsv, in una lista
     def load_tsv(self, file_path, dest):
 
-        with open(file_path, 'r') as tsv_file:
+        with open(file_path, 'r', encoding='utf8') as tsv_file:
             rd = csv.reader(tsv_file, delimiter='\t')
             for line in rd:                
                 dest.append(tuple(line))
@@ -142,8 +142,8 @@ class SELector:
         # Normalizzazione phrases
         if self.text_norm:
             print('Normalizzazione phrases (multiprocessing)...', end='', flush=True)
-            self.labeled_triples = parallel_phrases_normalizer(self.labeled_triples, nltk_phrase_normalizer)
-            self.unlabeled_triples = parallel_phrases_normalizer(self.unlabeled_triples, nltk_phrase_normalizer)
+            self.labeled_triples = text_triples_norm(self.labeled_triples)
+            self.unlabeled_triples = text_triples_norm(self.unlabeled_triples)
             print('Fatto.', flush=True)
 
         # Costruisce la tabella che serve per le predizioni
@@ -216,7 +216,7 @@ class SELector:
         # Controllo se modalità normalizzazione testo è attiva
         if self.text_norm:
             print('Normalizzazione phrases (multiprocessing)...', end='', flush=True)
-            text_triples = parallel_phrases_normalizer(text_triples, nltk_phrase_normalizer)
+            text_triples = text_triples_norm(text_triples)
             print('Fatto.', flush=True)
 
         # Iterazione su ogni tripla estratta dal testo
@@ -236,45 +236,56 @@ class SELector:
         return output[0]
 
 
-    # Valuta le prestazioni del modello, necessita di una ground truth
-    def evaluate(self, input_text_triples, input_ground_truth, gt_map=None):
+    # Valuta le prestazioni del modello, input_test deve contenere
+    # anche la relazione corretta: [(phr, e1, t1, e2, t2, rel), ...]
+    # gt_map è un mapping delle relazioni: {'P26': ['spouse', 'partner'], ...}
+    # gt_map viene usato solo se passato per gestire il disallineamento
+    def evaluate(self, input_test, gt_map=None):
         
         # Carica da disco se passi un path (text triples)
-        if type(input_text_triples) == str:
-            text_triples = list()
+        if type(input_test) == str:
+            test = list()
             print('Caricamento text triples in corso...', end='', flush=True)
-            self.load_tsv(input_text_triples, text_triples)
+            self.load_tsv(input_test, test)
             print('Fatto.', flush=True)
         else:
-            text_triples = input_text_triples
+            test = input_test
 
-        # Carica da disco se passi un path (ground truth)
-        if type(input_ground_truth) == str:
-            ground_truth = list()
-            print('Caricamento ground truth in corso...', end='', flush=True)
-            self.load_tsv(input_ground_truth, ground_truth)
-            print('Fatto.', flush=True)
-        else:
-            ground_truth = input_ground_truth
+        # Se si sta specificando un mapping per relazioni di interesse
+        if gt_map:
+            target_relations = [r for rels in gt_map.values() for r in rels]
 
-        # Effettua le predizioni con il modello e valuta le prestazioni
-        harvested = self.harvest(text_triples, keep_unknown=True)       
-        pred_card, true_card, relevant_card = 0, 0, 0
-        for i, gt in enumerate(ground_truth):
-            # Valutazione con remapping di relazioni o senza
+        # Effettua le estrazioni con il modello escludendo la ground truth
+        harvested = self.harvest([record[:-1] for record in test], keep_unknown=True)
+        
+        # Valutazione estrazioni       
+        extr_card, true_card, relevant_card = 0, 0, 0
+        for i, record in enumerate(test):
+
+            # Se si usa un mapping delle relazioni
             if gt_map:
+                # Cerca corrispondenze con la ground truth
                 try:
-                    true_relations = gt_map[gt[0]]
+                    true_relations = gt_map[record[-1]]
+                # Se la relazione non ha corrispondenze
                 except:
                     true_relations = ['unknown']
+
+            # Se non si usa un mapping la relazione associata è 
+            # solo quella specificata nel file di test
             else:
-                true_relations = [gt[0]]
+                true_relations = [record[-1]]
             # Relazione estratta dal modello
-            _, relation, _ = harvested[i]            
-            # Se il fatto predetto non è unknown
+            _, relation, _ = harvested[i]
+
+            # Se la relazione estratta non è nel mapping          
+            if gt_map and relation not in target_relations:
+                relation = 'unknown'
+
+            # Se la relazione estratta non è unknown
             if relation != 'unknown':
                 # Incrementa il conteggio delle relazioni estratte
-                pred_card += 1
+                extr_card += 1
                 # Se la relazione estratta è anche corretta
                 if relation in true_relations:
                     # Incrementa il conteggio delle estrazioni corrette
@@ -286,12 +297,12 @@ class SELector:
         # Calcolo precision, recall ed fScore
         precision, recall, fscore = 0, 0, 0        
         try:
-            precision = true_card / pred_card
+            precision = true_card / extr_card
             recall = true_card / relevant_card
             fscore =(precision*recall/(precision+recall))*2
         except:
             print('\nDivisione per 0, qualcosa non va bene:')
-            print(f'Fatti estratti totali: {pred_card}')
+            print(f'Fatti estratti totali: {extr_card}')
             print(f'Fatti estratti corretti: {true_card}')
             print(f'Fatti rilevanti totali: {relevant_card}')
 
@@ -350,7 +361,7 @@ if __name__ == '__main__':
     sel.show_list('harvested_triples', harvested)
 
     # Valutazione modello con ground truth
-    precision, recall, fscore = sel.evaluate(toy_tt_path, toy_gt_path)
+    precision, recall, fscore = sel.evaluate(toy_gt_path)
 
     print('\nValutazione sulle text triples usate per il training:')
     print(f'Precision: {precision}')

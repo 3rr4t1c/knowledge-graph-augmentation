@@ -52,7 +52,10 @@ def types_remap(hierarchy_filepath, h_level=-1, starred_types=None):
     remap = dict()
     for typ, branch in hmap.items():
         if not starred_types:
-            remap[typ] = branch[h_level] 
+            try:
+                remap[typ] = branch[h_level]
+            except:
+                remap[typ] = typ
         else:
             starred = False            
             for desc in reversed(branch):
@@ -61,7 +64,10 @@ def types_remap(hierarchy_filepath, h_level=-1, starred_types=None):
                     starred = True
                     break
             if not starred:
-                remap[typ] = branch[h_level]
+                try:
+                    remap[typ] = branch[h_level]
+                except:
+                    remap[typ] = typ
 
     return remap
 
