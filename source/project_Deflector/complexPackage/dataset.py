@@ -6,14 +6,14 @@ from typing import Tuple
 import numpy
 
 
-DATA_PATH = "complex_package/data"
+DATA_PATH = "complexPackage/data"
 FB15K = "FB15k"
 FB15K_237 = "FB15k-237"
 WN18 = "WN18"
 WN18RR = "WN18RR"
 YAGO3_10 = "YAGO3-10"
 
-ALL_DATASET_NAMES = [FB15K, FB15K_237, WN18, WN18RR, YAGO3_10]
+ALL_DATASET_NAMES = [FB15K, FB15K_237, WN18, WN18RR, YAGO3_10, "split_degree_build_v2"]
 
 # relation types
 ONE_TO_ONE="1-1"
@@ -73,7 +73,7 @@ class Dataset:
 
         if load:
             if not os.path.isdir(self.home):
-                raise Exception(f"Folder {self.home} does not exist")
+                raise Exception("Folder %s does not exist" % self.home)
 
             # internal counter for the distinct entities and relations encountered so far
             self._entity_counter, self._relation_counter = 0, 0
@@ -122,7 +122,7 @@ class Dataset:
         textual_triples = []
         data_triples = []
 
-        with open(triples_path, "r") as triples_file:
+        with open(triples_path, "r", encoding='utf8') as triples_file:
             lines = triples_file.readlines()
             for line in lines:
                 line = html.unescape(line)      # this is required for some YAGO3-10 lines
