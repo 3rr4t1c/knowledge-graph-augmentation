@@ -1,3 +1,0 @@
-Modificato nome del modulo complex.py in complex_model.py, perché sovrascriveva il tipo predefinito complex di Python
-
-DATA_PATH = complex_package/data per utlizzo esterno
